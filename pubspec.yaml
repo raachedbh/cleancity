@@ -1,0 +1,29 @@
+name: greenhaven
+description: CleanCity. A cartoon recycling adventure across six cities.
+publish_to: 'none'
+version: 0.17.2+21
+environment:
+  sdk: ^3.12.0
+dependencies:
+  flutter:
+    sdk: flutter
+  flame: ^1.38.2
+  shared_preferences: ^2.5.6
+  audioplayers: ^6.8.1
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  integration_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/branding/cleancity-icon-ui.png
+    - assets/images/characters.png
+    - assets/images/special_skins_v2.png
+    - assets/audio/
+  fonts:
+    - family: Nunito
+      fonts:
+        - asset: assets/fonts/Nunito.ttf
