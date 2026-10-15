@@ -68,3 +68,4 @@ app.*.map.json
 /docs/references/
 /docs/screenshots/*
 !/docs/screenshots/v17.2/
+!/docs/screenshots/v18/

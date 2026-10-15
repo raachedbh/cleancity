@@ -38,9 +38,17 @@ class District {
   final bool night;
   bool get premium => gemPrice > 0;
   int get litterCount => 600 + id * 220;
-  int get initialLitterCount => 45 + id * 12;
-  int get streetLitterLimit => 65 + id * 15;
-  int get maximumLitterCount => streetLitterLimit + 36;
+  int get initialLitterCount => maximumLitterCount ~/ 2;
+  // Reserve a few places for encounters inside the total map limit.
+  int get streetLitterLimit => maximumLitterCount - 8;
+  int get maximumLitterCount {
+    final base = districts.first.worldSize, size = worldSize;
+    return max(
+      40,
+      (4 * size.width * size.height / (base.width * base.height)).round() * 10,
+    );
+  }
+
   CityLayout get layout => CityLayout.forCity(id, columns, rows);
   List<Offset> get pedestrianStops => [
     // Sidewalk destinations reach the outskirts as well as the building lots.
@@ -303,11 +311,11 @@ class Litter {
       : max(1, 8 - max(0, nowMs - truckDroppedAt!) ~/ 4000);
 }
 
-// A finite cleanup quota. A generous opening selection is placed at once;
-// pedestrians introduce the rest as the player clears space on the streets.
-List<Litter> createLitter(int district, int cycle, {int? count}) {
+// A finite cleanup quota. Opening streets and midnight refills use the same
+// safe placement rules, with a separate random seed for each night's refill.
+List<Litter> createLitter(int district, int cycle, {int? count, int? seed}) {
   final area = districts[district],
-      random = Random(413 + district * 997 + cycle * 73);
+      random = Random(seed ?? 413 + district * 997 + cycle * 73);
   final result = <Litter>[];
   final blocks = area.blocks;
   for (

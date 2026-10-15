@@ -431,7 +431,7 @@ void main() {
       expect(s.removed[0], isEmpty);
       expect(s.projects.length, 6);
       expect(s.projects.first, 3);
-      expect(jsonDecode(store.value!)['version'], 17);
+      expect(jsonDecode(store.value!)['version'], 18);
     },
   );
   test(

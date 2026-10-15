@@ -111,7 +111,7 @@ class _GamePanelState extends State<GamePanel> {
   );
   Widget _town() => PanelLayout(
     title: 'Maps',
-    subtitle: '',
+    subtitle: '+20 litter at local midnight, up to each map\'s limit.',
     children: [
       for (final d in districts)
         SoftCard(
@@ -163,7 +163,7 @@ class _GamePanelState extends State<GamePanel> {
                       spacing: 8,
                       runSpacing: 6,
                       children: [
-                        _tag('${d.litterCount} pieces'),
+                        _tag('${d.maximumLitterCount} litter max'),
                         _tag(
                           '${d.earningMultiplier.toStringAsFixed(2)}× recycling',
                         ),
@@ -1009,8 +1009,8 @@ class _GamePanelState extends State<GamePanel> {
   Widget _settings() => PanelLayout(
     title: 'Settings',
     subtitle: s.testMode
-        ? 'CleanCity - Test build 0.17.2'
-        : 'CleanCity - Version 0.17.2',
+        ? 'CleanCity - Test build 0.18.0'
+        : 'CleanCity - Version 0.18.0',
     children: [
       SoftCard(
         child: Column(

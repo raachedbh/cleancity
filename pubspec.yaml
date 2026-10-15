@@ -1,7 +1,7 @@
 name: greenhaven
 description: CleanCity. A cartoon recycling adventure across six cities.
 publish_to: 'none'
-version: 0.17.2+21
+version: 0.18.0+22
 environment:
   sdk: ^3.12.0
 dependencies:

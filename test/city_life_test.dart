@@ -107,7 +107,7 @@ void main() {
       final store = MemoryStore(), state = GameState(MemoryStore());
       final s = GameState(store);
       expect(s.streetLitter[0].length, districts[0].initialLitterCount);
-      expect(s.streetLitter[0].length, inInclusiveRange(40, 60));
+      expect(s.streetLitter[0].length, districts[0].maximumLitterCount ~/ 2);
       final picked = s.streetLitter[0].first;
       expect(
         s.dropLitter(picked.position),

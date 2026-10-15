@@ -193,7 +193,7 @@ void main() {
       final saved = loaded.toJson()['streetLitter'];
       final again = GameState(store, now: () => time);
       await again.load();
-      expect(again.toJson()['version'], 17);
+      expect(again.toJson()['version'], 18);
       expect(again.toJson()['streetLitter'], saved);
       await again.flush();
       await old.flush();

@@ -3,12 +3,12 @@
 A full-screen portrait Flutter + Flame recycling adventure for Android and iPhone.
 
 ## Regular Android build
-The regular 0.17.2 APK is `releases/CleanCity-0.17.2.apk`, copied to the Desktop as `CleanCity.apk`. It uses normal progression and the original normal save: level/coin map requirements, outfit prices, starter gear and earned rewards. Build with `flutter build apk --release --dart-define=CLEANCITY_TEST_MODE=false`. The installed app is named **CleanCity**. Its application ID is unchanged, so installing the regular APK updates the existing app while the separate test save remains stored.
+The regular 0.18.0 APK is `releases/CleanCity-0.18.0.apk`, copied to the Desktop as `CleanCity.apk`. It uses normal progression and the original normal save: level/coin map requirements, outfit prices, starter gear and earned rewards. Build with `flutter build apk --release --dart-define=CLEANCITY_TEST_MODE=false`. The installed app is named **CleanCity**. Its application ID is unchanged, so installing the regular APK updates the existing app while the separate test save remains stored.
 
 The new city-and-leaf logo appears on the launcher, native launch screen, welcome panel and HUD. See [brand assets and generation prompt](docs/BRANDING_V7.md). iPhone/iPad icon assets are updated, but this deliverable is an Android APK.
 
 ## Android test build
-The unlocked 0.17.2 test APK is `releases/CleanCity-0.17.2-test.apk`, copied to the Desktop as `cleancitytest.apk`. It has every map, outfit, upgrade, restoration and the magnet available, level 100, one million test coins and 10,000 test gems. Settings offers a wallet/magnet refill, a starter/max gear toggle, and a preview button for the three optional city events.
+The unlocked 0.18.0 test APK is `releases/CleanCity-0.18.0-test.apk`, copied to the Desktop as `cleancitytest.apk`. It has every map, outfit, upgrade, restoration and the magnet available, level 100, one million test coins and 10,000 test gems. Settings offers a wallet/magnet refill, a starter/max gear toggle, and a preview button for the three optional city events.
 
 The test build installs alongside the regular game as **CleanCity Test**, with application ID `com.greenhaven.greenhaven.test` and isolated progress. The regular game keeps `com.greenhaven.greenhaven`. Both update in place with the existing development signing key. Real payments remain disabled.
 
@@ -22,7 +22,8 @@ Build with `flutter build apk --release --dart-define=CLEANCITY_TEST_MODE=true`.
 - Open the book icon for **Album**. Catch thieves, step on their dropped valuables, then use **To police** and **Return** for a small reward. Lifetime counts remain in Rewards; Progress holds totals and earned souvenirs, including the Golden city for 100,000 recycled items.
 - Street encounters are several active-play minutes apart. Thieves and trucks do not spawn together. A short city alert announces them; exclamation marks identify thieves and shields identify police stations on the minimap.
 - Notices appear inside the top HUD; full bags show just **Bag full**, once until space is freed.
-- Streets begin with a small amount of litter near curbs. Pedestrians occasionally drop more, up to a fixed cleanup quota.
+- At the phone's local midnight, each unlocked map receives up to 20 randomly placed litter pieces. Missed nights catch up when reopening, within the map limit. Maps shows each cap: Willow Lane 40, Porto Sole 70, Tunis Avenue 80, Paris Gardens 110, Kyoto Lanterns 120 and Midnight Hollow 150.
+- Streets start half full. All ground, NPC, thief and truck litter counts toward the same hard cap. Ordinary drops leave eight places for encounters. Collected progress, inventory and recycling jobs survive updates.
 - Touch and drag to place the floating joystick. Double-tap its edge to auto-walk; touch again to stop. Nearby bottles, cans and cardboard collect automatically.
 - Tap **To station**, then **Recycle**, to deposit a batch. Processing starts at 15 seconds while you keep exploring.
 - Earn XP, upgrade your bag and recycler, and activate the 15-second magnet after level 5.
@@ -33,7 +34,7 @@ Build with `flutter build apk --release --dart-define=CLEANCITY_TEST_MODE=true`.
 - Completed street cleanups refresh automatically during play, even while a recycling batch runs. Restore gardens with the flower button.
 - Tap your level badge to see milestones, or the gift icon to see attendance rewards.
 
-Progress is saved on this device. All assets and normal gameplay work offline. Calendar resets use UTC. Real-money purchases are disabled; the planned 100-gem pack is a preview only.
+Progress is saved on this device. All assets and normal gameplay work offline. Goals and daily gifts use UTC; nightly litter uses the phone's local date. Real-money purchases are disabled; the planned 100-gem pack is a preview only.
 
 ## Run and verify
 Flutter 3.44.0 / Dart 3.12.0. Dependencies are pinned in pubspec.lock.
@@ -75,6 +76,7 @@ The universal APK uses development signing. iOS sources are included but require
 - `docs/ART_PROMPTS_V2.json`: built-in imagegen prompts and asset locations.
 - `docs/BUILD_NOTES_V17.md`: album, police returns and less frequent events.
 - `docs/BUILD_NOTES_V17_2.md`: default Dark mode and the one-time quick-start guide.
+- `docs/BUILD_NOTES_V18.md`: local-midnight refills and map-size litter limits.
 - `docs/BUILD_NOTES_V7.md`: regular build and branding validation.
 - `docs/BUILD_NOTES_V6.md`: earlier gameplay/test build validation.
 

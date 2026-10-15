@@ -71,7 +71,9 @@ class GoalTracker {
 
 class GameState extends ChangeNotifier {
   GameState(this.store, {DateTime Function()? now})
-    : clock = now ?? DateTime.now;
+    : clock = now ?? DateTime.now {
+    lastLitterDay = localLitterDay;
+  }
   final SaveStore store;
   final DateTime Function() clock;
   int coins = 0, gems = 0, xp = 0, district = 0, outfit = 0;
@@ -166,12 +168,25 @@ class GameState extends ChangeNotifier {
   bool testMode = false;
   bool saveFailed = false, recoveredSave = false;
   int lastDailyDay = -1, dailyStreak = 0, lastSeenMs = 0;
+  int lastLitterDay = -1;
   int magnetUntil = 0, magnetReadyAt = 0;
   Future<void> _pending = Future.value();
   bool _disposed = false;
   int get nowMs => max(lastSeenMs, clock().toUtc().millisecondsSinceEpoch);
   DateTime get now => DateTime.fromMillisecondsSinceEpoch(nowMs, isUtc: true);
   int get today => nowMs ~/ Duration.millisecondsPerDay;
+  // Compare local calendar dates, not 24-hour durations, so daylight-saving
+  // changes still produce exactly one refill per local midnight.
+  int get localLitterDay {
+    final local = DateTime.fromMillisecondsSinceEpoch(nowMs);
+    return DateTime.utc(
+          local.year,
+          local.month,
+          local.day,
+        ).millisecondsSinceEpoch ~/
+        Duration.millisecondsPerDay;
+  }
+
   int get level {
     var l = 1;
     while (l < 100 && xp >= xpForLevel(l + 1)) {
@@ -477,6 +492,7 @@ class GameState extends ChangeNotifier {
   void tick({bool attendance = false}) {
     lastSeenMs = nowMs;
     var changed = _rollGoals();
+    changed = _refillAtMidnight() || changed;
     final finished = jobs.values.where((j) => j.readyAt <= nowMs).toList();
     for (final j in finished) {
       jobs.remove(j.district);
@@ -508,37 +524,99 @@ class GameState extends ChangeNotifier {
     if (attendance && introduced) checkIn();
   }
 
-  /// All emissions are finite and persisted. Reopening cannot refill the street.
+  /// Catch up missed local midnights without running a background process or
+  /// accumulating more litter than each unlocked city can hold.
+  bool _refillAtMidnight() {
+    final day = localLitterDay;
+    if (day <= lastLitterDay) return false;
+    final allowance = (day - lastLitterDay) * 20;
+    lastLitterDay = day;
+    for (final id in unlockedMaps) {
+      final area = districts[id], active = streetLitter[id];
+      if (active.isEmpty && removed[id].length >= cleanupTargets[id]) {
+        _resetCleanupRound(id, seedLitter: false);
+      }
+      final count = min(
+        allowance,
+        min(
+          area.maximumLitterCount - active.length,
+          cleanupTargets[id] - removed[id].length - active.length,
+        ),
+      );
+      if (count <= 0) continue;
+      final seed = day * 811 + id * 977 + cycles[id] * 73;
+      final candidates = createLitter(
+        id,
+        cycles[id],
+        count: area.maximumLitterCount * 3,
+        seed: seed,
+      )..shuffle(Random(seed));
+      var added = 0;
+      for (final candidate in candidates) {
+        if (_insertLitter(
+              id,
+              candidate.position,
+              limit: area.maximumLitterCount,
+              kind: candidate.kind,
+            ) !=
+            null) {
+          added++;
+        }
+        if (added >= count) break;
+      }
+    }
+    // Persist even a full map's refill date: collecting later that day must
+    // never trigger another batch, including after closing and reopening.
+    return true;
+  }
+
+  /// All sources share the map's hard limit and finite cleanup quota.
   Litter? dropLitter(
     Offset position, {
     bool fromThief = false,
     bool fromTruck = false,
   }) {
-    final area = districts[district], active = streetLitter[district];
-    if (active.length >=
-            (fromThief || fromTruck
-                ? area.maximumLitterCount
-                : area.streetLitterLimit) ||
-        active.length + removed[district].length >= cleanupTarget ||
+    final area = districts[district];
+    final item = _insertLitter(
+      district,
+      position,
+      limit: fromThief || fromTruck
+          ? area.maximumLitterCount
+          : area.streetLitterLimit,
+      truckDroppedAt: fromTruck ? nowMs : null,
+    );
+    if (item != null) _changed();
+    return item;
+  }
+
+  Litter? _insertLitter(
+    int id,
+    Offset position, {
+    required int limit,
+    int? truckDroppedAt,
+    MaterialKind? kind,
+  }) {
+    final area = districts[id], active = streetLitter[id];
+    if (active.length >= min(limit, area.maximumLitterCount) ||
+        active.length + removed[id].length >= cleanupTargets[id] ||
         !area.canStand(position, clearance: 20) ||
         area.stations.any((s) => (s - position).distance < 105) ||
         active.any((s) => (s.position - position).distance < 20)) {
       return null;
     }
-    final used = {...removed[district], ...active.map((i) => i.id)};
+    final used = {...removed[id], ...active.map((i) => i.id)};
     var index = 0;
-    while (used.contains('$district:${cycles[district]}:$index')) {
+    while (used.contains('$id:${cycles[id]}:$index')) {
       index++;
     }
     final item = Litter(
-      '$district:${cycles[district]}:$index',
+      '$id:${cycles[id]}:$index',
       position,
-      MaterialKind.values[(index + cycles[district]) % 3],
-      district,
-      truckDroppedAt: fromTruck ? nowMs : null,
+      kind ?? MaterialKind.values[(index + cycles[id]) % 3],
+      id,
+      truckDroppedAt: truckDroppedAt,
     );
     active.add(item);
-    _changed();
     return item;
   }
 
@@ -698,15 +776,21 @@ class GameState extends ChangeNotifier {
   }
 
   void _startCleanupRound() {
-    cycles[district]++;
-    cleanupTargets[district] = districts[district].litterCount;
-    removed[district].clear();
-    streetLitter[district] = createLitter(
-      district,
-      cycles[district],
-      count: districts[district].initialLitterCount,
-    );
+    _resetCleanupRound(district);
     _changed();
+  }
+
+  void _resetCleanupRound(int id, {bool seedLitter = true}) {
+    cycles[id]++;
+    cleanupTargets[id] = districts[id].litterCount;
+    removed[id].clear();
+    // Keep the list identity so the live map sees a midnight round immediately.
+    streetLitter[id].clear();
+    if (seedLitter) {
+      streetLitter[id].addAll(
+        createLitter(id, cycles[id], count: districts[id].initialLitterCount),
+      );
+    }
   }
 
   void completeIntro() {
@@ -783,7 +867,8 @@ class GameState extends ChangeNotifier {
         version != 14 &&
         version != 15 &&
         version != 16 &&
-        version != 17) {
+        version != 17 &&
+        version != 18) {
       throw const FormatException('Unsupported save');
     }
     int n(String k, [int fallback = 0]) =>
@@ -935,6 +1020,8 @@ class GameState extends ChangeNotifier {
                   ? 316 + id * 100
                   : version == 15
                   ? 206 + id * 60
+                  : version < 18
+                  ? 101 + id * 15
                   : districts[id].maximumLitterCount) ||
           items.length + removed[id].length > cleanupTargets[id]) {
         throw const FormatException('Street capacity exceeded');
@@ -944,11 +1031,14 @@ class GameState extends ChangeNotifier {
       // Reduce already-populated v14/v15 streets as well as new games. Keep truck
       // drops first (newest bonuses first); retired uncollected IDs can be
       // emitted later and never count toward progress or rewards.
-      if (version < 16 && items.length > districts[id].initialLitterCount) {
+      final trimTarget = version < 16
+          ? districts[id].initialLitterCount
+          : districts[id].maximumLitterCount;
+      if (version < 18 && items.length > trimTarget) {
         final truckItems = items.where((i) => i.truckDroppedAt != null).toList()
           ..sort((a, b) => b.truckDroppedAt!.compareTo(a.truckDroppedAt!));
         final normal = items.where((i) => i.truckDroppedAt == null).toList();
-        final target = districts[id].initialLitterCount;
+        final target = trimTarget;
         final balanced = truckItems.take(target).toList();
         final remaining = target - balanced.length;
         for (var n = 0; n < remaining; n++) {
@@ -1025,6 +1115,10 @@ class GameState extends ChangeNotifier {
     lastDailyDay = (d['lastDailyDay'] as num?)?.toInt() ?? -1;
     dailyStreak = n('dailyStreak').clamp(0, 7);
     lastSeenMs = n('lastSeenMs');
+    // Upgrades begin tracking today; old saves have no historical refill debt.
+    lastLitterDay = version >= 18
+        ? n('lastLitterDay', localLitterDay)
+        : localLitterDay;
     magnetUntil = n('magnetUntil');
     magnetReadyAt = n('magnetReadyAt');
     jobs.clear();
@@ -1068,7 +1162,7 @@ class GameState extends ChangeNotifier {
   }
 
   Map<String, dynamic> toJson() => {
-    'version': 17,
+    'version': 18,
     'album': album.toJson(),
     'coins': coins,
     'gems': gems,
@@ -1114,6 +1208,7 @@ class GameState extends ChangeNotifier {
     'lastDailyDay': lastDailyDay,
     'dailyStreak': dailyStreak,
     'lastSeenMs': lastSeenMs,
+    'lastLitterDay': lastLitterDay,
     'magnetUntil': magnetUntil,
     'magnetReadyAt': magnetReadyAt,
     'cityEvent': cityEvent?.toJson(),
